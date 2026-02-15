@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from db_config import DB_CONFIG
 
 # File Path and Validation Parameters
-TRIP_DATA_FILE = "data/yellow_cleaned_tripdata.csv"
+TRIP_DATA_FILE = "data/yellow_tripdata_2019-01.csv"
 MIN_DISTANCE    = 0.0          
 MAX_DISTANCE    = 200.0
 MIN_FARE        = 0.0         
