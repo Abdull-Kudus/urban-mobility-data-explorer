@@ -1,6 +1,4 @@
 database/db_config.py
 .venv/
-data/yellow_cleaned_tripdata.csv
 data/yellow_tripdata_2019-01.csv
-
-
+__pycache__/
