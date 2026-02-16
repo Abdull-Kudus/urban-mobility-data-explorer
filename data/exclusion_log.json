@@ -1,0 +1,37 @@
+{
+  "run_date": "2026-02-16 22:29:18",
+  "input_file": "yellow_tripdata_2019-01.csv",
+  "total_rows": 7667792,
+  "rows_kept": 7649688,
+  "rows_excluded": 18104,
+  "exclusion_rate_pct": 0.24,
+  "exclusion_reasons": {
+    "fare_out_of_range": 7163,
+    "zero_distance_and_zero_duration": 5939,
+    "unrealistic_speed_over_200mph": 4533,
+    "pickup_year_not_2019": 443,
+    "duplicate_row": 7,
+    "duration_exceeds_24hrs": 5,
+    "negative_extra": 5,
+    "distance_out_of_range": 5,
+    "dropoff_before_pickup": 4
+  },
+  "assumptions": [
+    "Pickup year restricted to 2019",
+    "Max trip duration: 24 hours",
+    "Distance range: 0-200 miles",
+    "Fare range: $0-$500",
+    "Speed cap: 200 mph (anything above is physically impossible)",
+    "Zero-distance + zero-duration trips excluded (stationary)",
+    "Negative financial fields excluded",
+    "total_amount < fare_amount excluded (logically inconsistent)",
+    "Invalid vendor/ratecode/payment IDs corrected to defaults",
+    "Location IDs outside 1-265 mapped to 265 (Outside NYC)",
+    "Dedup key: (pickup_time, dropoff_time, PU_loc, DO_loc, distance, fare)",
+    "Zone enrichment from taxi_zone_lookup.csv (borough + zone name)"
+  ],
+  "dimension_tables_loaded": {
+    "taxi_zone_lookup": 265,
+    "taxi_zones_geojson": 260
+  }
+}
