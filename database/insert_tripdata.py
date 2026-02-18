@@ -1,7 +1,10 @@
 import csv
-import mysql.connector
+import psycopg
 from datetime import datetime, timedelta
-from db_config import DB_CONFIG
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # File Path and Validation Parameters
 TRIP_DATA_FILE = "data/yellow_cleaned_tripdata.csv"
@@ -98,8 +101,14 @@ def is_valid_row(row, pickup_dt, dropoff_dt, distance, fare):
 # Main Insertion Function
 def insert_trips():
     """Read CSV and insert cleaned trips into database."""
-    conn   = mysql.connector.connect(**DB_CONFIG)
-    cursor = conn.cursor()
+    conn = psycopg.connect(
+        host     = os.getenv("DB_HOST"),
+        port     = int(os.getenv("DB_PORT", 26257)),
+        dbname   = os.getenv("DB_NAME"),
+        user     = os.getenv("DB_USER"),
+        password = os.getenv("DB_PASSWORD"),
+        sslmode  = os.getenv("DB_SSLMODE", "verify-full"),
+    )
 
     inserted  = 0
     excluded  = 0
@@ -122,6 +131,7 @@ def insert_trips():
             %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s
         )
+        ON CONFLICT DO NOTHING
     """
 
     print(f"Opening {TRIP_DATA_FILE} ...")
@@ -182,7 +192,8 @@ def insert_trips():
             batch.append(record)
 
             if len(batch) >= BATCH_SIZE:
-                cursor.executemany(sql, batch)
+                with conn.cursor() as cur:
+                    cur.executemany(sql, batch)
                 conn.commit()
                 inserted += len(batch)
                 print(f"  Inserted {inserted} rows so far ...")
@@ -190,11 +201,11 @@ def insert_trips():
 
     # Insert remaining rows
     if batch:
-        cursor.executemany(sql, batch)
+        with conn.cursor() as cur:
+            cur.executemany(sql, batch)
         conn.commit()
         inserted += len(batch)
 
-    cursor.close()
     conn.close()
 
     print("\nInsertion complete")

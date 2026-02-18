@@ -1,20 +1,13 @@
--- Urban Mobility Data Explorer — MySQL Schema
-
-CREATE DATABASE IF NOT EXISTS urban_mobility;
-USE urban_mobility;
+-- Urban Mobility Data Explorer — CockroachDB Schema
 
 CREATE TABLE IF NOT EXISTS boroughs (
-    borough_id   INT          NOT NULL AUTO_INCREMENT,
-    borough_name VARCHAR(100) NOT NULL,
-    PRIMARY KEY (borough_id),
-    UNIQUE KEY uq_borough_name (borough_name)
+    borough_id   SERIAL       PRIMARY KEY,
+    borough_name VARCHAR(100) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS service_zones (
-    zone_type_id INT         NOT NULL AUTO_INCREMENT,
-    zone_type    VARCHAR(50) NOT NULL,
-    PRIMARY KEY (zone_type_id),
-    UNIQUE KEY uq_zone_type (zone_type)
+    zone_type_id SERIAL      PRIMARY KEY,
+    zone_type    VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS taxi_zones (
@@ -48,7 +41,7 @@ CREATE TABLE IF NOT EXISTS payment_types (
 );
 
 CREATE TABLE IF NOT EXISTS trips (
-    trip_id              BIGINT         NOT NULL AUTO_INCREMENT,
+    trip_id              SERIAL         PRIMARY KEY,
 
     vendor_id            INT            NOT NULL,
     ratecode_id          INT            NOT NULL,
@@ -57,12 +50,12 @@ CREATE TABLE IF NOT EXISTS trips (
     pickup_location_id   INT            NOT NULL,
     dropoff_location_id  INT            NOT NULL,
 
-    pickup_datetime      DATETIME       NOT NULL,
-    dropoff_datetime     DATETIME       NOT NULL,
+    pickup_datetime      TIMESTAMP      NOT NULL,
+    dropoff_datetime     TIMESTAMP      NOT NULL,
 
-    passenger_count      TINYINT        NOT NULL DEFAULT 1,
+    passenger_count      SMALLINT       NOT NULL DEFAULT 1,
     trip_distance        DECIMAL(8, 2)  NOT NULL DEFAULT 0.00,
-    store_and_fwd_flag   CHAR(1)        NOT NULL DEFAULT 'N',
+    store_and_fwd_flag   VARCHAR(1)     NOT NULL DEFAULT 'N',
 
     fare_amount          DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     extra                DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
@@ -75,11 +68,9 @@ CREATE TABLE IF NOT EXISTS trips (
 
     trip_duration_minutes DECIMAL(8, 2)  DEFAULT NULL,
     fare_per_mile        DECIMAL(10, 4)  DEFAULT NULL,
-    pickup_hour          TINYINT         DEFAULT NULL,
-    is_weekend           TINYINT(1)      DEFAULT NULL,
+    pickup_hour          SMALLINT        DEFAULT NULL,
+    is_weekend           SMALLINT        DEFAULT NULL,
     avg_speed_mph        DECIMAL(10, 4)  DEFAULT NULL,
-
-    PRIMARY KEY (trip_id),
 
     -- Foreign key constraints
     CONSTRAINT fk_trip_vendor
@@ -95,24 +86,25 @@ CREATE TABLE IF NOT EXISTS trips (
 );
 
 -- INDEXES
-CREATE INDEX idx_trips_pickup_datetime  ON trips (pickup_datetime);
-CREATE INDEX idx_trips_dropoff_datetime ON trips (dropoff_datetime);
-CREATE INDEX idx_trips_pickup_hour      ON trips (pickup_hour);
+CREATE INDEX IF NOT EXISTS idx_trips_pickup_datetime  ON trips (pickup_datetime);
+CREATE INDEX IF NOT EXISTS idx_trips_dropoff_datetime ON trips (dropoff_datetime);
+CREATE INDEX IF NOT EXISTS idx_trips_pickup_hour      ON trips (pickup_hour);
 
-CREATE INDEX idx_trips_pickup_location  ON trips (pickup_location_id);
-CREATE INDEX idx_trips_dropoff_location ON trips (dropoff_location_id);
+CREATE INDEX IF NOT EXISTS idx_trips_pickup_location  ON trips (pickup_location_id);
+CREATE INDEX IF NOT EXISTS idx_trips_dropoff_location ON trips (dropoff_location_id);
 
-CREATE INDEX idx_trips_fare_amount      ON trips (fare_amount);
-CREATE INDEX idx_trips_trip_distance    ON trips (trip_distance);
+CREATE INDEX IF NOT EXISTS idx_trips_fare_amount      ON trips (fare_amount);
+CREATE INDEX IF NOT EXISTS idx_trips_trip_distance    ON trips (trip_distance);
 
-CREATE INDEX idx_trips_zone_hour        ON trips (pickup_location_id, pickup_hour);
-CREATE INDEX idx_trips_is_weekend       ON trips (is_weekend);
+CREATE INDEX IF NOT EXISTS idx_trips_zone_hour        ON trips (pickup_location_id, pickup_hour);
+CREATE INDEX IF NOT EXISTS idx_trips_is_weekend       ON trips (is_weekend);
 
 
 -- SEED DATA
 INSERT INTO vendors (vendor_id, vendor_name) VALUES
 (1, 'Creative Mobile Technologies'),
-(2, 'VeriFone Inc.');
+(2, 'VeriFone Inc.')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO rate_codes (ratecode_id, ratecode_description) VALUES
 (1, 'Standard rate'),
@@ -120,7 +112,8 @@ INSERT INTO rate_codes (ratecode_id, ratecode_description) VALUES
 (3, 'Newark'),
 (4, 'Nassau or Westchester'),
 (5, 'Negotiated fare'),
-(6, 'Group ride');
+(6, 'Group ride')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO payment_types (payment_type_id, payment_type_name) VALUES
 (1, 'Credit card'),
@@ -128,7 +121,8 @@ INSERT INTO payment_types (payment_type_id, payment_type_name) VALUES
 (3, 'No charge'),
 (4, 'Dispute'),
 (5, 'Unknown'),
-(6, 'Voided trip');
+(6, 'Voided trip')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO boroughs (borough_id, borough_name) VALUES
 (1, 'EWR'),
@@ -138,14 +132,16 @@ INSERT INTO boroughs (borough_id, borough_name) VALUES
 (5, 'Staten Island'),
 (6, 'Brooklyn'),
 (7, 'Unknown'),
-(8, 'N/A');
+(8, 'N/A')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO service_zones (zone_type_id, zone_type) VALUES
 (1, 'EWR'),
 (2, 'Boro Zone'),
 (3, 'Yellow Zone'),
 (4, 'Airports'),
-(5, 'N/A');
+(5, 'N/A')
+ON CONFLICT DO NOTHING;
 
 -- All 265 taxi zones from taxi_zone_lookup.csv
 INSERT INTO taxi_zones (location_id, zone_name, borough_id, zone_type_id) VALUES
@@ -413,4 +409,5 @@ INSERT INTO taxi_zones (location_id, zone_name, borough_id, zone_type_id) VALUES
 (262, 'Yorkville East', 4, 3),
 (263, 'Yorkville West', 4, 3),
 (264, 'N/A', 7, 5),
-(265, 'Outside of NYC', 8, 5);
+(265, 'Outside of NYC', 8, 5)
+ON CONFLICT DO NOTHING;
