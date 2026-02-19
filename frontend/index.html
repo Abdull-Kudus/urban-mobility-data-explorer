@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<!--
+  index.html
+  ----------
+  The main page of the Urban Mobility Dashboard.
+  
+  HOW TO USE:
+  1. Make sure the Flask backend is running:
+       cd backend
+       python run.py
+  2. Open this file in your browser (double-click it, or use VS Code Live Server).
+  3. The dashboard will automatically load data from http://localhost:5000
+  
+  LIBRARIES USED (loaded from the internet, no installation needed):
+  - Chart.js  → draws the bar charts and graphs
+  - Inter font → clean, modern text from Google Fonts
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="NYC Yellow Taxi Urban Mobility Explorer – interactive dashboard for trip data analysis" />
+  <title>Urban Mobility Explorer | NYC Taxi Data</title>
+
+  <!-- Our custom stylesheet -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!--
+    Chart.js – the library that draws all our charts.
+    We load it from a CDN (Content Delivery Network) so we don't need to install anything.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       NAVIGATION BAR
+       The top bar with the app title, live clock, and backend status.
+       ============================================================ -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <!-- Left side: logo + title -->
+    <div class="navbar-brand">
+      <span class="icon" aria-hidden="true">🚕</span>
+      <h1>Urban Mobility <span>Explorer</span></h1>
+    </div>
+
+    <!-- Right side: clock + connection status -->
+    <div class="navbar-right">
+      <!-- Live clock – updated every second by JavaScript -->
+      <span id="live-clock" aria-live="polite">--:--:--</span>
+
+      <!-- Status badge: shows if the backend API is reachable -->
+      <div class="status-badge" id="status-badge" title="Backend API connection status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Connecting…</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       MAIN CONTENT AREA
+       ============================================================ -->
+  <main class="main-wrapper">
+
+    <!-- Page title and subtitle -->
+    <div class="page-header">
+      <h2>NYC Yellow Taxi – Trip Analytics Dashboard</h2>
+      <p>Explore urban mobility patterns from real trip records. Use the filters below to drill into specific time periods, boroughs, or fare ranges.</p>
+    </div>
+
+    <!-- ============================================================
+         FILTER PANEL
+         Users can filter the data by date, borough, distance, and fare.
+         ============================================================ -->
+    <section class="filter-panel" aria-label="Data filters">
+      <div class="filter-panel-header">
+        <h3>🔍 Filter Data</h3>
+      </div>
+
+      <!-- Grid of filter inputs -->
+      <div class="filter-grid">
+
+        <!-- Date range: start -->
+        <div class="filter-group">
+          <label for="filter-start-date">Start Date</label>
+          <input
+            type="date"
+            id="filter-start-date"
+            name="start_date"
+            value="2019-01-01"
+            title="Filter trips from this date"
+          />
+        </div>
+
+        <!-- Date range: end -->
+        <div class="filter-group">
+          <label for="filter-end-date">End Date</label>
+          <input
+            type="date"
+            id="filter-end-date"
+            name="end_date"
+            value="2019-01-31"
+            title="Filter trips up to this date"
+          />
+        </div>
+
+        <!-- Borough dropdown – options are filled in by JavaScript -->
+        <div class="filter-group">
+          <label for="filter-borough">Pickup Borough</label>
+          <select id="filter-borough" name="pickup_zone" title="Filter by pickup borough">
+            <option value="">All Boroughs</option>
+            <!-- JavaScript will add borough options here automatically -->
+          </select>
+        </div>
+
+        <!-- Minimum fare -->
+        <div class="filter-group">
+          <label for="filter-min-fare">Min Fare ($)</label>
+          <input
+            type="number"
+            id="filter-min-fare"
+            name="min_fare"
+            placeholder="e.g. 5"
+            min="0"
+            step="0.5"
+            title="Minimum fare amount in dollars"
+          />
+        </div>
+
+        <!-- Maximum fare -->
+        <div class="filter-group">
+          <label for="filter-max-fare">Max Fare ($)</label>
+          <input
+            type="number"
+            id="filter-max-fare"
+            name="max_fare"
+            placeholder="e.g. 100"
+            min="0"
+            step="0.5"
+            title="Maximum fare amount in dollars"
+          />
+        </div>
+
+        <!-- Minimum distance -->
+        <div class="filter-group">
+          <label for="filter-min-distance">Min Distance (miles)</label>
+          <input
+            type="number"
+            id="filter-min-distance"
+            name="min_distance"
+            placeholder="e.g. 1"
+            min="0"
+            step="0.1"
+            title="Minimum trip distance in miles"
+          />
+        </div>
+
+      </div><!-- end .filter-grid -->
+
+      <!-- Apply and Reset buttons -->
+      <div class="filter-actions">
+        <button class="btn btn-secondary" id="btn-reset" onclick="resetFilters()" title="Clear all filters">
+          ↺ Reset
+        </button>
+        <button class="btn btn-primary" id="btn-apply" onclick="applyFilters()" title="Apply selected filters">
+          ✓ Apply Filters
+        </button>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         KPI SUMMARY CARDS
+         Four big numbers at a glance: total trips, avg fare, avg distance, avg speed.
+         ============================================================ -->
+    <div class="stats-grid" aria-label="Summary statistics">
+
+      <div class="stat-card">
+        <div class="stat-label">Total Trips (filtered)</div>
+        <div class="stat-value" id="stat-total-trips">—</div>
+        <div class="stat-sub">matching your current filters</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Avg Fare Amount</div>
+        <div class="stat-value" id="stat-avg-fare">—</div>
+        <div class="stat-sub">average total charge per trip</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Avg Trip Distance</div>
+        <div class="stat-value" id="stat-avg-distance">—</div>
+        <div class="stat-sub">average miles per trip</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Avg Speed</div>
+        <div class="stat-value" id="stat-avg-speed">—</div>
+        <div class="stat-sub">average miles per hour</div>
+      </div>
+
+    </div><!-- end .stats-grid -->
+
+    <!-- ============================================================
+         CHARTS SECTION
+         Four charts arranged in a 2×2 grid.
+         ============================================================ -->
+    <h2 class="section-title">📊 Analytics Charts</h2>
+
+    <div class="charts-grid">
+
+      <!-- Chart 1: Trips per Hour of Day -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>🕐 Trips per Hour of Day</h3>
+          <p>When are taxis busiest? Each bar shows total trips for that hour (0 = midnight, 12 = noon).</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <!-- The loading spinner is shown while data loads -->
+          <div class="loading-overlay" id="loading-hourly">
+            <div class="spinner"></div>
+          </div>
+          <!-- Chart.js draws the chart onto this canvas element -->
+          <canvas id="chart-hourly" aria-label="Trips per hour bar chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Revenue by Borough -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>🏙️ Revenue by Borough</h3>
+          <p>Total revenue earned from pickups in each NYC borough.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-revenue">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-revenue" aria-label="Revenue by borough bar chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Average Fare by Distance Group -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>📏 Avg Fare by Distance Group</h3>
+          <p>How does the average fare change as trips get longer? Grouped by distance bucket.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-fare">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-fare" aria-label="Average fare per distance group bar chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Top 10 Revenue Zones -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>🏆 Top 10 Revenue Zones</h3>
+          <p>The highest-earning pickup zones, ranked using a custom merge sort algorithm.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-zones">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-zones" aria-label="Top 10 revenue zones bar chart"></canvas>
+        </div>
+      </div>
+
+    </div><!-- end .charts-grid -->
+
+    <!-- ============================================================
+         TRIPS DATA TABLE
+         Shows individual trip records with pagination.
+         ============================================================ -->
+    <h2 class="section-title">🗂️ Trip Records</h2>
+
+    <div class="table-section">
+      <div class="table-header">
+        <h3>Individual Trip Records</h3>
+        <span id="table-count" style="font-size:0.82rem; color:var(--text-muted);">Loading…</span>
+      </div>
+
+      <!-- Scrollable table wrapper (handles overflow on small screens) -->
+      <div class="table-wrapper">
+        <!-- Loading overlay for the table -->
+        <div class="loading-overlay" id="loading-table" style="position:relative; min-height:80px;">
+          <div class="spinner"></div>
+        </div>
+
+        <table id="trips-table" aria-label="Trip records table">
+          <thead>
+            <tr>
+              <th>Pickup Time</th>
+              <th>Pickup Zone</th>
+              <th>Dropoff Zone</th>
+              <th>Borough</th>
+              <th>Distance (mi)</th>
+              <th>Fare ($)</th>
+              <th>Total ($)</th>
+              <th>Duration (min)</th>
+              <th>Speed (mph)</th>
+              <th>Passengers</th>
+            </tr>
+          </thead>
+          <!-- JavaScript fills in the rows here -->
+          <tbody id="trips-tbody">
+            <tr>
+              <td colspan="10" style="text-align:center; padding:32px; color:var(--text-muted);">
+                Loading trip data…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div><!-- end .table-wrapper -->
+
+      <!-- Pagination controls below the table -->
+      <div class="pagination">
+        <div class="pagination-info" id="pagination-info">Page 1</div>
+        <div class="pagination-controls">
+          <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="changePage(-1)" disabled>
+            ← Prev
+          </button>
+          <span class="page-num" id="page-display">Page 1 of 1</span>
+          <button class="btn btn-secondary btn-sm" id="btn-next" onclick="changePage(1)" disabled>
+            Next →
+          </button>
+        </div>
+      </div>
+    </div><!-- end .table-section -->
+
+  </main><!-- end .main-wrapper -->
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer class="footer">
+    <p>Urban Mobility Explorer · NYC Yellow Taxi Data · Built with Flask + Chart.js</p>
+  </footer>
+
+  <!-- ============================================================
+       ERROR TOAST
+       A small popup that appears at the bottom-right if something goes wrong.
+       ============================================================ -->
+  <div class="toast" id="error-toast" role="alert" aria-live="assertive">
+    <strong>⚠️ Error:</strong> <span id="toast-message">Something went wrong.</span>
+  </div>
+
+  <!-- Load our JavaScript file (must be at the bottom so the HTML is ready first) -->
+  <script src="dashboard.js"></script>
+
+</body>
+</html>
