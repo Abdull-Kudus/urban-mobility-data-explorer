@@ -1,5 +1,11 @@
 from app.db.connection import get_connection
-from app.algorithms.custom_algorithm import rank_zones_by_revenue
+from app.algorithms.custom_algorithm import (
+    rank_zones_by_revenue,
+    get_top_pickup_hours,
+    group_trips_by_key,
+    detect_anomalies,
+    detect_multiple_anomalies
+)
 
 
 def get_hourly_demand() -> list[dict]:
@@ -127,3 +133,152 @@ def get_top_revenue_zones(top_n: int = 10) -> list[dict]:
     sorted_data = rank_zones_by_revenue(raw_data)
 
     return sorted_data[:top_n]
+
+
+def get_top_pickup_hours_manual(top_n: int = 5) -> list[dict]:
+    """
+    Get top N pickup hours using manual top-k selection algorithm.
+    This demonstrates the top-k selection algorithm without using built-in sorting.
+    """
+    sql = """
+        SELECT
+            pickup_hour,
+            COUNT(*) AS trip_count
+        FROM trips
+        WHERE pickup_hour IS NOT NULL
+        GROUP BY pickup_hour
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql)
+        rows = cur.fetchall()
+        cur.close()
+    finally:
+        conn.close()
+
+    hourly_data = []
+    for r in rows:
+        r = dict(r)
+        r["trip_count"] = int(r["trip_count"])
+        hourly_data.append(r)
+
+    # Use manual top-k selection instead of SQL ORDER BY
+    top_hours = get_top_pickup_hours(hourly_data, top_n)
+    
+    return top_hours
+
+
+def get_trips_grouped_by_zone_manual(limit: int = 1000) -> list[dict]:
+    """
+    Group trips by zone using custom hash map implementation.
+    This demonstrates manual grouping without SQL GROUP BY.
+    """
+    sql = """
+        SELECT
+            tz.zone_name,
+            b.borough_name,
+            t.total_amount,
+            t.trip_distance,
+            t.trip_duration_minutes
+        FROM trips t
+        JOIN taxi_zones tz ON t.pickup_location_id = tz.location_id
+        JOIN boroughs   b  ON tz.borough_id        = b.borough_id
+        LIMIT %s
+    """
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, (limit,))
+        rows = cur.fetchall()
+        cur.close()
+    finally:
+        conn.close()
+
+    trips = []
+    for r in rows:
+        trips.append({
+            'zone_name': r['zone_name'],
+            'borough_name': r['borough_name'],
+            'total_amount': float(r['total_amount']) if r['total_amount'] else 0.0,
+            'trip_distance': float(r['trip_distance']) if r['trip_distance'] else 0.0,
+            'trip_duration_minutes': float(r['trip_duration_minutes']) if r['trip_duration_minutes'] else 0.0
+        })
+
+    # Use custom hash map for grouping
+    grouped = group_trips_by_key(
+        trips, 
+        group_key='zone_name',
+        aggregate_key='total_amount',
+        operation='sum'
+    )
+
+    return grouped
+
+
+def get_anomalous_trips(field: str = 'total_amount', 
+                        threshold: float = 3.0,
+                        limit: int = 10000) -> list[dict]:
+    """
+    Detect anomalous trips using manual Z-score calculation.
+    This demonstrates anomaly detection without using statistical libraries.
+    """
+    # Validate field name to prevent SQL injection
+    valid_fields = {
+        'total_amount': 'total_amount',
+        'trip_distance': 'trip_distance',
+        'trip_duration_minutes': 'trip_duration_minutes',
+        'fare_per_mile': 'fare_per_mile',
+        'avg_speed_mph': 'avg_speed_mph'
+    }
+    
+    if field not in valid_fields:
+        raise ValueError(f"Invalid field: {field}")
+    
+    safe_field = valid_fields[field]
+    
+    sql = f"""
+        SELECT
+            trip_id,
+            pickup_datetime,
+            tz.zone_name,
+            b.borough_name,
+            total_amount,
+            trip_distance,
+            trip_duration_minutes,
+            fare_per_mile,
+            avg_speed_mph
+        FROM trips t
+        JOIN taxi_zones tz ON t.pickup_location_id = tz.location_id
+        JOIN boroughs   b  ON tz.borough_id        = b.borough_id
+        WHERE {safe_field} IS NOT NULL
+        LIMIT %s
+    """
+    
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, (limit,))
+        rows = cur.fetchall()
+        cur.close()
+    finally:
+        conn.close()
+
+    trips = []
+    for r in rows:
+        trips.append({
+            'trip_id': r['trip_id'],
+            'pickup_datetime': str(r['pickup_datetime']) if r['pickup_datetime'] else None,
+            'zone_name': r['zone_name'],
+            'borough_name': r['borough_name'],
+            'total_amount': float(r['total_amount']) if r['total_amount'] else None,
+            'trip_distance': float(r['trip_distance']) if r['trip_distance'] else None,
+            'trip_duration_minutes': float(r['trip_duration_minutes']) if r['trip_duration_minutes'] else None,
+            'fare_per_mile': float(r['fare_per_mile']) if r['fare_per_mile'] else None,
+            'avg_speed_mph': float(r['avg_speed_mph']) if r['avg_speed_mph'] else None
+        })
+
+    # Use manual anomaly detection
+    anomalies = detect_anomalies(trips, field, threshold)
+    
+    return anomalies

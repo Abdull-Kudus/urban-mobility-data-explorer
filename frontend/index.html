@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="NYC Yellow Taxi Urban Mobility Explorer – interactive dashboard for trip data analysis" />
+  <title>Urban Mobility Explorer | NYC Taxi Data</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="1" y="10" width="22" height="9" rx="2" />
+        <path d="M5 10V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3" />
+        <circle cx="7" cy="19" r="2" />
+        <circle cx="17" cy="19" r="2" />
+        <path d="M9 6l1-3h4l1 3" />
+      </svg>
+      <h1>Urban Mobility <span>Explorer</span></h1>
+    </div>
+    <div class="navbar-right">
+      <span id="live-clock">--:--:--</span>
+      <div class="status-badge" id="status-badge">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Connecting</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-wrapper">
+
+    <div class="page-header">
+      <h2>NYC Yellow Taxi — Trip Analytics Dashboard</h2>
+      <p>January 2019 &middot; 7.6 million cleaned trip records &middot; Use the filters below to explore patterns by
+        date, borough, fare, and distance.</p>
+    </div>
+
+    <!-- building the filter panel for date, borough, fare and distance -->
+    <section class="filter-panel">
+      <div class="filter-panel-header">
+        <h3>Filter Data</h3>
+      </div>
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label for="filter-start-date">Start Date</label>
+          <input type="date" id="filter-start-date" name="start_date" value="2019-01-01" />
+        </div>
+        <div class="filter-group">
+          <label for="filter-end-date">End Date</label>
+          <input type="date" id="filter-end-date" name="end_date" value="2019-01-31" />
+        </div>
+        <div class="filter-group">
+          <label for="filter-borough">Pickup Borough</label>
+          <select id="filter-borough" name="pickup_zone">
+            <option value="">All Boroughs</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="filter-min-fare">Min Fare ($)</label>
+          <input type="number" id="filter-min-fare" name="min_fare" placeholder="e.g. 5" min="0" step="0.5" />
+        </div>
+        <div class="filter-group">
+          <label for="filter-max-fare">Max Fare ($)</label>
+          <input type="number" id="filter-max-fare" name="max_fare" placeholder="e.g. 100" min="0" step="0.5" />
+        </div>
+        <div class="filter-group">
+          <label for="filter-min-distance">Min Distance (miles)</label>
+          <input type="number" id="filter-min-distance" name="min_distance" placeholder="e.g. 1" min="0" step="0.1" />
+        </div>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-secondary" id="btn-reset" onclick="resetFilters()">Reset</button>
+        <button class="btn btn-primary" id="btn-apply" onclick="applyFilters()">Apply Filters</button>
+      </div>
+    </section>
+
+    <div class="stats-grid">
+      <div class="stat-card card-blue">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+        </div>
+        <div class="stat-label">Total Trips</div>
+        <div class="stat-value" id="stat-total-trips">—</div>
+        <div class="stat-sub">matching current filters</div>
+      </div>
+      <div class="stat-card card-green">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+          </svg>
+        </div>
+        <div class="stat-label">Avg Fare Amount</div>
+        <div class="stat-value" id="stat-avg-fare">—</div>
+        <div class="stat-sub">average charge per trip</div>
+      </div>
+      <div class="stat-card card-orange">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <div class="stat-label">Avg Trip Distance</div>
+        <div class="stat-value" id="stat-avg-distance">—</div>
+        <div class="stat-sub">average miles per trip</div>
+      </div>
+      <div class="stat-card card-purple">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
+        </div>
+        <div class="stat-label">Avg Speed</div>
+        <div class="stat-value" id="stat-avg-speed">—</div>
+        <div class="stat-sub">average miles per hour</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">Analytics Charts</h2>
+      <p class="section-sub">Explore mobility patterns across time, geography, and economics</p>
+    </div>
+
+    <!-- rendering four charts using Chart.js with data from the Flask backend -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Trips per Hour of Day</h3>
+          <p>When are taxis busiest? Each bar shows total trips for that hour (0 = midnight, 12 = noon).</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-hourly">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-hourly"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Revenue by Borough</h3>
+          <p>Total revenue earned from pickups in each NYC borough.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-revenue">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-revenue"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Avg Fare by Distance Group</h3>
+          <p>How does the average fare change as trips get longer? Grouped by distance bucket.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-fare">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-fare"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <h3>Top 10 Revenue Zones</h3>
+          <p>The highest-earning pickup zones, ranked using a custom merge sort algorithm.</p>
+        </div>
+        <div class="chart-canvas-wrapper">
+          <div class="loading-overlay" id="loading-zones">
+            <div class="spinner"></div>
+          </div>
+          <canvas id="chart-zones"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <h2 class="section-title">Trip Records</h2>
+      <p class="section-sub">Browse individual trip records with pagination</p>
+    </div>
+
+    <!-- loading trip records into a paginated table for browsing -->
+    <div class="table-section">
+      <div class="table-header">
+        <h3>Individual Trip Records</h3>
+        <span id="table-count" class="table-count">Loading...</span>
+      </div>
+      <div class="table-wrapper">
+        <div class="loading-overlay" id="loading-table" style="position:relative; min-height:80px;">
+          <div class="spinner"></div>
+        </div>
+        <table id="trips-table">
+          <thead>
+            <tr>
+              <th>Pickup Time</th>
+              <th>Pickup Zone</th>
+              <th>Dropoff Zone</th>
+              <th>Borough</th>
+              <th>Distance (mi)</th>
+              <th>Fare ($)</th>
+              <th>Total ($)</th>
+              <th>Duration (min)</th>
+              <th>Speed (mph)</th>
+              <th>Passengers</th>
+            </tr>
+          </thead>
+          <tbody id="trips-tbody">
+            <tr>
+              <td colspan="10" class="loading-cell">Loading trip data...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <div class="pagination-info" id="pagination-info">Page 1</div>
+        <div class="pagination-controls">
+          <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="changePage(-1)" disabled>Prev</button>
+          <span class="page-num" id="page-display">Page 1 of 1</span>
+          <button class="btn btn-secondary btn-sm" id="btn-next" onclick="changePage(1)" disabled>Next</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <p>Urban Mobility Explorer &mdash; NYC Yellow Taxi Dataset (January 2019) &mdash; Built with Flask &amp; Chart.js
+    </p>
+  </footer>
+
+  <div class="toast" id="error-toast" role="alert">
+    <strong>Error:</strong> <span id="toast-message">Something went wrong.</span>
+  </div>
+
+  <script src="dashboard.js"></script>
+
+</body>
+
+</html>

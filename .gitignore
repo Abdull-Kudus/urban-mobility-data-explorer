@@ -1,7 +1,14 @@
-database/db_config.py
 .env
 .venv/
 data/yellow_tripdata_2019-01.csv
 data/yellow_cleaned_tripdata.csv
+data/yellow_tripdata_2019-01.parquet
 data/_temp_enriched.csv
+data/exclusion_log.csv
 __pycache__/
+*.pyc
+*.pyo
+database/db_config.py
+certs/
+.vscode/
+.DS_Store
